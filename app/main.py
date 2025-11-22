@@ -1,18 +1,17 @@
+import sqlite3
 from contextlib import asynccontextmanager
-from typing import Annotated, Literal, Optional
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 from fastapi.middleware.cors import CORSMiddleware
-
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
-from sqlmodel import Field, Session, SQLModel, create_engine, select
 
-import uuid
 from pathlib import Path
 from datetime import datetime
 
 
 ##############################################################################
-
 
 def find_project_root(marker=".git"):
     current = Path(__file__).resolve()
@@ -24,36 +23,80 @@ def find_project_root(marker=".git"):
 
 project_root = find_project_root()
 db_path = project_root / "database.db"
-
-
-class ChatMessage(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime = Field(index=True)
-    timestamp: datetime = Field(index=True)
-    channel_name: str = Field(index=True)
-    username: str | None = Field(default=None, index=True)
-    message_text: str
-    message_type: str = Field(index=True)
+schema_path = Path(__file__).resolve().parent / "schema.sql"
 
 
 ##############################################################################
 
-
-sqlite_url = f"sqlite:///{db_path}"
-connect_args = {"check_same_thread": False}
-engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)
+class DeckBase(BaseModel):
+    name: str
 
 
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+class Deck(DeckBase):
+    id: int | None = None
+    added_at: datetime = Field(default_factory=datetime.now)
 
 
-def get_session():
-    with Session(engine) as session:
-        yield session
+class CardBase(BaseModel):
+    name: str
+    manaCost: str | None = None
+    manaValue: float | None = None
+    power: str | None = None
+    originalText: str | None = None
+    type: str | None = None
+    types: str | None = None
+    mtgArenaId: str | None = None
+    scryfallId: str | None = None
+    availability: str | None = None
+    colors: str | None = None
+    keywords: str | None = None
 
 
-SessionDep = Annotated[Session, Depends(get_session)]
+class Card(CardBase):
+    id: int | None = None
+    name: str | None = None
+
+
+class DeckCardBase(BaseModel):
+    deck_id: int
+    card_id: int
+    quantity: int
+
+
+class DeckCard(DeckCardBase):
+    id: int | None = None
+
+
+##############################################################################
+
+def get_db():
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_db_conn():
+    conn = get_db()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+DBConnDep = Annotated[sqlite3.Connection, Depends(get_db_conn)]
+
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        with open(schema_path, "r") as f:
+            cursor.executescript(f.read())
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Warning: Could not initialize database from schema.sql: {e}")
 
 
 ##############################################################################
@@ -67,15 +110,16 @@ def add_cors_middleware(fastapi_app):
     )
 
 
+##############################################################################
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    create_db_and_tables()
+    init_db()
     yield
     print("shutting down")
 
 
 app = FastAPI(lifespan=lifespan)
-# noinspection PyTypeChecker
 app.add_middleware(add_cors_middleware)
 
 
@@ -91,47 +135,19 @@ async def add_logging_middleware(request: Request, call_next):
 
 
 @app.get("/")
-def root(request):
+def root():
     return {"Hello": "World"}
 
-@app.get("/chats/", response_model=list[ChatMessage])
-async def read_chats(
-        session: SessionDep,
-        channel_name: Annotated[str | None, Query()] = None,
-        username: Annotated[str | None, Query()] = None,
-        message_type: Annotated[str | None, Query()] = None,
-        start_datetime: Optional[datetime] = Query(None),
-        end_datetime: Optional[datetime] = Query(None),
-        offset: int = 0,
-        limit: Annotated[int, Query(ge=1, le=100)] = 100,
-        order_by: Annotated[
-            Literal["timestamp", "username", "message_type"], Query()
-        ] = "timestamp",
-        desc: bool = False,
-) -> list[ChatMessage]:
-    stmt = select(ChatMessage)
 
-    if channel_name is not None:
-        stmt = stmt.where(getattr(ChatMessage, "channel_name") == channel_name)
+@app.get("/decks")
+def get_decks(conn: DBConnDep):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, added_at FROM decks")
+    return [dict(row) for row in cursor.fetchall()]
 
-    if username is not None:
-        stmt = stmt.where(getattr(ChatMessage, "username") == username)
 
-    if message_type is not None:
-        stmt = stmt.where(getattr(ChatMessage, "message_type") == message_type)
-
-    if start_datetime is not None:
-        stmt = stmt.where(getattr(ChatMessage, "timestamp") >= start_datetime)
-
-    if end_datetime is not None:
-        stmt = stmt.where(getattr(ChatMessage, "timestamp") <= end_datetime)
-
-    if desc:
-        stmt = stmt.order_by(getattr(ChatMessage, order_by).desc())
-    else:
-        stmt = stmt.order_by(getattr(ChatMessage, order_by))
-
-    stmt = stmt.offset(offset).limit(limit)
-
-    results = session.exec(stmt).all()
-    return list(results)
+@app.get("/cards")
+def get_cards(conn: DBConnDep):
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM cards limit 10")
+    return [dict(row) for row in cursor.fetchall()]
