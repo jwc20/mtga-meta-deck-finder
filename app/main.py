@@ -1,6 +1,6 @@
 import sqlite3
 import asyncio
-from collections import namedtuple
+from collections import namedtuple, Counter
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from pathlib import Path
 from datetime import datetime
+import os
 
 
 ##############################################################################
@@ -22,6 +23,37 @@ def find_project_root(marker=".git"):
             return parent
     return current.parent
 
+
+def get_last_log_line():
+    """Read the last line from fake_seventeenlands.log"""
+    try:
+        if not log_file_path.exists():
+            return None
+
+        with open(log_file_path, 'rb') as file:
+            # Seek to end of file
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+
+            if file_size == 0:
+                return None
+
+            # Read backwards to find last newline
+            file.seek(-2, os.SEEK_END)
+            while file.read(1) != b'\n':
+                if file.tell() == 1:  # At beginning of file
+                    file.seek(0)
+                    break
+                file.seek(-2, os.SEEK_CUR)
+
+            last_line = file.readline().decode('utf-8').strip()
+            return last_line
+    except Exception as e:
+        print(f"Error reading log file: {e}")
+        return None
+
+
+log_file_path = Path(os.path.expanduser("~")) / ".seventeenlands" / "fake_seventeenlands.log"
 
 project_root = find_project_root()
 db_path = project_root / "database.db"
@@ -196,52 +228,135 @@ async def add_decks_to_db(conn: sqlite3.Connection, data: dict):
     conn.commit()
 
 
-def get_cards(deck_id: int, conn: DBConnDep):
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT c.name, dc.quantity, c.manaCost, c.type
-        FROM deck_cards dc
-        JOIN cards c ON dc.card_id = c.id
-        WHERE dc.deck_id = ?
-        ORDER BY c.manaCost
-    """, (deck_id,))
-    cards = [dict(row) for row in cursor.fetchall()]
-
-    if not cards:
-        raise HTTPException(status_code=404, detail=f"No cards found for deck {deck_id}")
-
-    return cards
-
-
 def get_decks(cursor):
-    cursor.execute("SELECT id, name, source, url, added_at FROM decks ORDER BY added_at DESC")
-    decks = [dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+    SELECT d.id        as deck_id,
+           d.name      as deck_name,
+           d.source    as deck_source,
+           d.url       as deck_url,
+           c.name      as name,
+           dc.quantity as quantity,
+           c.manaCost  as manaCost,
+           c.type      as type
+    FROM decks d
+             inner join deck_cards dc
+                        on d.id = dc.deck_id
+             left join cards c
+                       on dc.card_id = c.id
+    ORDER BY added_at DESC;
+    """)
+    rows = cursor.fetchall()
 
-    for deck in decks:
-        cursor.execute("""
-                SELECT c.name, dc.quantity, c.manaCost, c.type
-                FROM deck_cards dc
-                JOIN cards c ON dc.card_id = c.id
-                WHERE dc.deck_id = ?
-                ORDER BY c.name
-            """, (deck['id'],))
-        deck['cards'] = [dict(row) for row in cursor.fetchall()]
-        
-    return decks
+    cards = [dict(row) for row in rows]
+    # print(decks)
+    decks = {}
+    for card in cards:
+        deck_id = card["deck_id"]
+
+        if deck_id not in decks:
+            decks[deck_id] = {
+                "id": card["deck_id"],
+                "name": card["deck_name"],
+                "source": card["deck_source"],
+                "url": card["deck_url"],
+                "cards": []
+            }
+
+        card_info = {
+            "name": card["name"],
+            "quantity": card["quantity"],
+            "manaCost": card["manaCost"],
+            "type": card["type"]
+        }
+        decks[deck_id]["cards"].append(card_info)
+    return list(decks.values())
 
 
 ##############################################################################
 # Routes
 ##############################################################################
 
+@app.get("/check-logs", response_class=HTMLResponse)
+async def get_last_log(request: Request, conn: DBConnDep):
+    cursor = conn.cursor()
+    
+    last_line = get_last_log_line()
+    split_line = last_line.split("::")
+    cards_list = split_line[2].split(": ")[1].strip("[]").split(", ")
+    qs = ", ".join("?" * len(cards_list))
+    
+    cursor.execute(f"select distinct name, mtgArenaId from cards where mtgArenaId in ({qs})", cards_list)
+    card_names = [dict(row) for row in cursor.fetchall()]
+    
+    cards_counts = Counter(cards_list)
+
+    # Create a dictionary mapping mtgArenaId to card info including count
+    card_info_by_id = {}
+    for card in card_names:
+        card_info_by_id[card["name"]] = {
+            # "name": card["name"],
+            "count": cards_counts[card["mtgArenaId"]]
+        }
+    
+    # Get all card details including mana cost and type
+    cursor.execute(f"SELECT distinct name, manaCost, type, mtgArenaId FROM cards WHERE mtgArenaId IN ({qs})", cards_list)
+    cards = [dict(row) for row in cursor.fetchall()]
+    
+    # Add count to each card
+    for card in cards:
+        card["count"] = card_info_by_id[card["name"]]["count"]
+    
+    qs_names = ", ".join("?" * len(list(set([card['name'] for card in cards]))))
+    # card_ids_qs = ", ".join("?" * len(card_ids))
+    cursor.execute(f"""
+        SELECT DISTINCT d.id, d.name, d.source, d.url,
+               COUNT(DISTINCT dc.card_id) as matched_cards,
+               (SELECT COUNT(*) FROM deck_cards WHERE deck_id = d.id) as total_deck_cards
+        FROM decks d
+        JOIN deck_cards dc ON d.id = dc.deck_id
+        JOIN cards c ON dc.card_id = c.id
+        WHERE c.name IN ({qs_names}) 
+        GROUP BY d.id
+        ORDER BY matched_cards DESC
+    """, [card['name'] for card in cards])
+    matching_decks = [dict(row) for row in cursor.fetchall()]
+    
+    for deck in matching_decks:
+        cursor.execute("""
+                  SELECT c.name, dc.quantity, c.manaCost, c.type, c.mtgArenaId
+                  FROM deck_cards dc
+                  JOIN cards c ON dc.card_id = c.id
+                  WHERE dc.deck_id = ?
+                  ORDER BY c.manaValue, c.name
+              """, (deck['id'],))
+        deck['cards'] = [dict(row) for row in cursor.fetchall()]
+        for card in deck['cards']:
+            if card['name'] in card_info_by_id:
+                card['current_count'] = card_info_by_id[card['name']]['count']
+            else:
+                card['current_count'] = 0
+                
+            # card['current_count'] = card_info_by_id[card['name']]['count']
+            
+
+    return templates.TemplateResponse(
+        request=request, name="list_cards.html", context={"cards": cards, "matching_decks": matching_decks}
+    )
+
+
+@app.get("/follow", response_class=HTMLResponse)
+async def list_follow(request: Request, conn: DBConnDep):
+    cursor = conn.cursor()
+    decks = get_decks(cursor)
+    return templates.TemplateResponse(
+        request=request, name="follow.html", context={"decks": decks}
+    )
+
 
 @app.get("/untapped", response_class=HTMLResponse)
 async def list_untapped(request: Request, conn: DBConnDep):
     cursor = conn.cursor()
     decks = get_decks(cursor)
-    for deck in decks:
-        deck['cards'] = get_cards(deck['id'], conn)
-
     return templates.TemplateResponse(
         request=request, name="untapped.html", context={"decks": decks}
     )

@@ -33,7 +33,6 @@ import dateutil.parser
 
 import seventeenlands.api_client
 import seventeenlands.logging_utils
-import httpx
 
 logger = seventeenlands.logging_utils.get_logger("17Lands")
 

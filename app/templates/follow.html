@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Decks - AMD{% endblock %}
+{% block content %}
+
+<section>
+<!--    opponent's cards played -->
+    <div
+        class="current-cards"
+        hx-get="/check-logs"
+        hx-target=".container"
+        hx-swap="innerHTML"
+        hx-trigger="every 1s"
+    >   
+    </div>
+</section>
+
+<section>
+    <div class="container">
+    </div>
+</section>
+
+
+
+{% endblock %}

@@ -1,0 +1,53 @@
+<section>
+    <table>
+        <thead>
+        <tr>
+            <th>Count</th>
+            <th>Name</th>
+            <th>Mana Cost</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for card in cards %}
+        <tr>
+            <td>{{ card.count }}</td>
+            <td>{{ card.name }}</td>
+            <td>{{ card.manaCost }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <div class="meta-decks">
+        <ul>
+            {% for deck in matching_decks %}
+                <li>
+                    <a >{{ deck.name }}</a>
+                    <span>{{ deck.matched_cards }} / {{ deck.total_deck_cards }}</span>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Current Count</th>
+                            <th>Count</th>
+                            <th>Name</th>
+                            <th>Mana Cost</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for card in deck.cards|sort(attribute='current_count', reverse=true) %}
+                        <tr>
+                            <td> {{ card.current_count }}</td>
+                            <td>{{ card.quantity }}</td>
+                            <td>{{ card.name }}</td>
+                            <td>{{ card.manaCost }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
