@@ -505,7 +505,8 @@ class Follower:
 
             self.last_blob = full_log
         else:
-            logger.info(f"Skipping repeated complete log entry: {full_log}")
+            print("Skipping repeated complete log entry: ", full_log)
+            # logger.info(f"Skipping repeated complete log entry: {full_log}")
 
         self.buffer = []
         # self.cur_log_time = None
