@@ -18,7 +18,7 @@
     <div class="decks">
         {% for deck in decks %}
         <div class="deck">
-            <h3><a href="{{ deck.url }}">{{ deck.name }}</a></h3>
+            <h3><a href="{{ deck['url'] }}">{{ deck.name }}</a></h3>
             <table>
                 <thead>
                     <tr>
