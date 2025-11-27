@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS decks (
 CREATE TABLE IF NOT EXISTS cards (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
+    printed_name TEXT,
     manaCost TEXT,
     manaValue REAL,
     power TEXT,
@@ -56,7 +57,8 @@ CREATE TABLE IF NOT EXISTS deck_cards (
 ATTACH DATABASE 'AllPrintings.sqlite' AS ap;
        
 
-INSERT INTO cards (name, manaCost, manaValue, power, originalText, type, types, mtgArenaId, scryfallId, availability, colors, keywords)
+-- Only insert cards if the cards table is empty
+INSERT OR IGNORE INTO cards (name, manaCost, manaValue, power, originalText, type, types, mtgArenaId, scryfallId, availability, colors, keywords)
 SELECT 
     c.name,
     c.manaCost,
@@ -72,4 +74,5 @@ SELECT
     c.keywords
 FROM ap.cards c
 LEFT JOIN ap.cardIdentifiers ci ON c.uuid = ci.uuid
-WHERE c.availability LIKE '%arena%';
+WHERE c.availability LIKE '%arena%'
+AND NOT EXISTS (SELECT 1 FROM cards LIMIT 1);
