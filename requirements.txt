@@ -27,6 +27,8 @@ click==8.3.1
     #   uvicorn
 dnspython==2.8.0
     # via email-validator
+duckdb==1.4.2
+    # via mtga-meta (pyproject.toml)
 email-validator==2.3.0
     # via
     #   fastapi
@@ -69,6 +71,10 @@ markupsafe==3.0.3
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+numpy==2.3.5
+    # via pandas
+pandas==2.3.3
+    # via mtga-meta (pyproject.toml)
 pprintpp==0.4.0
     # via mtga-meta (pyproject.toml)
 pydantic==2.12.4
@@ -82,11 +88,14 @@ pygments==2.19.2
 python-dateutil==2.9.0.post0
     # via
     #   mtga-meta (pyproject.toml)
+    #   pandas
     #   visidata
 python-dotenv==1.2.1
     # via uvicorn
 python-multipart==0.0.20
     # via fastapi
+pytz==2025.2
+    # via pandas
 pyyaml==6.0.3
     # via uvicorn
 requests==2.32.5
@@ -132,6 +141,8 @@ typing-extensions==4.15.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
+tzdata==2025.2
+    # via pandas
 urllib3==2.5.0
     # via
     #   requests
