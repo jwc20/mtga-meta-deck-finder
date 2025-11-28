@@ -62,8 +62,8 @@ log_file_path = Path(os.path.expanduser("~")) / ".seventeenlands" / "fake_sevent
 
 project_root = find_project_root()
 db_path = project_root / "database.db"
-schema_path = project_root / "app/schema.sql"
-template_path = project_root / "app/templates"
+schema_path = project_root / "schema.sql"
+template_path = project_root / "templates"
 
 
 ##############################################################################
@@ -315,7 +315,7 @@ def fetch_current_deck_cards(cursor, arena_ids: list[str]) -> list[dict]:
 
     placeholders = ", ".join("?" * len(arena_ids))
     query = f"""
-        SELECT DISTINCT name, manaCost, types, mtgArenaId, scryfallId
+        SELECT DISTINCT name, manaCost, types, mtgArenaId, scryfallId, printedName, flavorName
         FROM cards 
         WHERE mtgArenaId IN ({placeholders})
     """
@@ -340,11 +340,11 @@ def fetch_current_deck_cards(cursor, arena_ids: list[str]) -> list[dict]:
         
         for card in missing_cards:
             # search for the cards by name, get the first card and get manaCost, types, scryfallId 
-            __query = "Select name, manaCost, types, scryfallId from cards where name = ? limit 1"
+            __query = "Select name, manaCost, types, scryfallId, printedName, flavorName from cards where name = ? limit 1"
             cursor.execute(__query, (card["name"],))
             result = cursor.fetchone()
             if not result:
-                __query = "Select name, manaCost, types, scryfallId from cards where printedName = ? or flavorName = ? limit 1"
+                __query = "Select name, manaCost, types, scryfallId, printedName, flavorName from cards where printedName = ? or flavorName = ? limit 1"
                 cursor.execute(__query, (card["name"], card["name"]))
                 result = cursor.fetchone()
             
@@ -353,6 +353,8 @@ def fetch_current_deck_cards(cursor, arena_ids: list[str]) -> list[dict]:
             card["manaCost"] = result["manaCost"]
             card["types"] = result["types"]
             card["scryfallId"] = result["scryfallId"]
+            card["printedName"] = result["printedName"]
+            card["flavorName"] = result["flavorName"]
 
         cards.extend(missing_cards)
     # cards.extend([dict(row) for row in cursor.fetchall()])
