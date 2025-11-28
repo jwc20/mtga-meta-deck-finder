@@ -138,7 +138,11 @@
             <li>
                 <span>({{ card.count }})</span>
                 <span class="card-hover">
-                    {{ card.name }}
+                    {% if card.printedName %}
+                        {{ card.printedName }}
+                    {% else %}
+                        {{ card.name }}
+                    {% endif %}
                     {% if card.scryfallId %}
                     <img class="card-image"
                          src="https://cards.scryfall.io/large/front/{{ card.scryfallId[0] }}/{{ card.scryfallId[1] }}/{{ card.scryfallId }}.jpg"
