@@ -208,6 +208,7 @@ async def add_untapped_decks_url_list_route(request: Request, conn: DBConnDep, u
     try:
         print(url_list)
         urls = url_list.split("\n")
+        urls = list(set(urls))
         data = await build_untapped_decks_api_urls(urls)
 
         try:
@@ -371,7 +372,7 @@ def find_matching_decks(cursor, current_cards: list[dict]) -> list[dict]:
     unique_card_names = list(set(card['name'] for card in current_cards))
     placeholders = ", ".join("?" * len(unique_card_names))
 
-    query = f"""
+    query_2 = f"""
         SELECT DISTINCT 
             d.id, 
             d.name, 
@@ -380,20 +381,44 @@ def find_matching_decks(cursor, current_cards: list[dict]) -> list[dict]:
             COUNT(DISTINCT dc.card_id) as matched_cards,
             (SELECT COUNT(*) FROM deck_cards WHERE deck_id = d.id) as total_deck_cards
         FROM decks d
-        INNER JOIN deck_cards dc ON d.id = dc.deck_id
-        INNER JOIN scryfall_all_cards c ON dc.card_id = c.id
-        WHERE c.name IN ({placeholders})
+        inner JOIN deck_cards dc ON d.id = dc.deck_id
+        inner JOIN scryfall_all_cards c ON dc.card_id = c.id
+        WHERE c.name IN ({placeholders}) 
         GROUP BY d.id
         ORDER BY matched_cards DESC
     """
-    cursor.execute(query, unique_card_names)
+    cursor.execute(query_2, unique_card_names)
     cards = [dict(row) for row in cursor.fetchall()]
+    
+    # if len(cards) == 0:
+    query_2 = f"""
+    SELECT DISTINCT d.id,
+                    d.name,
+                    d.source,
+                    d.url,
+                    COUNT(DISTINCT dc.name)                                as matched_cards,
+                    (SELECT COUNT(*) FROM deck_cards WHERE deck_id = d.id) as total_deck_cards
+    FROM decks d
+             inner JOIN deck_cards dc ON d.id = dc.deck_id
+             inner JOIN scryfall_all_cards c ON dc.name = c.name
+    WHERE c.name IN ({placeholders}) and d.format = 'standard' and total_deck_cards <= 100 and source in ('17lands.com', 'mtgazone.com')
+    GROUP BY d.id
+    ORDER BY matched_cards DESC
+    limit 10
+    """
+    cursor.execute(query_2, unique_card_names)
+    # cards = [dict(row) for row in cursor.fetchall()]
+    cards.extend([dict(row) for row in cursor.fetchall()])
+    
     # cards = [card for card in cards if card["component"] != "combo_piece"]
     return cards
 
 
 def calculate_mana_cost_value(mana_cost: str) -> int:
     value = 0
+    if not mana_cost:
+        return value
+    
     for char in mana_cost:
         # get the value inside {} bracket and count as one
         if char == '{' and not mana_cost[mana_cost.index(char) + 1].isdigit():
@@ -401,6 +426,7 @@ def calculate_mana_cost_value(mana_cost: str) -> int:
         if char.isdigit():
             value += int(char)
     return value
+
 
 def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str, int]):
     for deck in decks:
@@ -415,6 +441,19 @@ def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str,
         deck['cards'] = [dict(row) for row in cursor.fetchall()]
         deck['cards'] = [card for card in deck['cards'] if card['component'] != "combo_piece"]
         
+        if len(deck["cards"]) == 0:
+            deck_cards_query = """
+                SELECT c.name, dc.quantity, c.mana_cost, c.type_line, c.arena_id, c.id, c.component
+                FROM deck_cards dc
+                JOIN scryfall_all_cards c ON dc.name = c.name
+                WHERE dc.deck_id = ?
+                GROUP BY c.name
+                ORDER BY c.name
+            """
+            cursor.execute(deck_cards_query, (deck['id'],))
+            deck['cards'] = [dict(row) for row in cursor.fetchall()]
+            deck['cards'] = [card for card in deck['cards'] if card['component'] != "combo_piece"]
+    
         # calculate mana_cost_value
         for card in deck['cards']:
             card['mana_cost_value'] = calculate_mana_cost_value(card['mana_cost'])
@@ -429,10 +468,10 @@ def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str,
 
 def parse_card_types(card_type: str) -> Tuple[List[str], str, List[str]]:
     """
-    Given a card type string, split it up into its raw components: super, sub, and type
-    :param card_type: Card type string to parse
-    :return: Tuple (super, type, sub) of the card's attributes
+    https://github.com/mtgjson/mtgjson/blob/793b6b0fd1d591d77463684c52627e2963c3fd33/mtgjson5/set_builder.py#L138
     """
+    if not card_type:
+        return [], "", []
     sub_types: List[str] = []
     super_types: List[str] = []
     types: List[str] = []
@@ -605,6 +644,11 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
                 result = cursor.fetchone()
 
             card_id = result[0]
+            cursor.execute(
+                "INSERT OR IGNORE INTO deck_cards (deck_id, card_id, quantity, name, section) VALUES (?, ?, ?, ?, ?)",
+                (deck_id, card_id, card.get("qty", 1), card["name"], "main")
+            )
+            conn.commit()
             # else:
             #     cursor.execute(
             #         """INSERT INTO scryfall_all_cards 
@@ -631,11 +675,11 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
             #     )
             #     card_id = cursor.lastrowid
 
-            cursor.execute(
-                "INSERT OR IGNORE INTO deck_cards (deck_id, card_id, quantity) VALUES (?, ?, ?)",
-                (deck_id, card_id, card.get("qty", 1))
-            )
-    conn.commit()
+            # cursor.execute(
+            #     "INSERT OR IGNORE INTO deck_cards (deck_id, card_id, quantity) VALUES (?, ?, ?)",
+            #     (deck_id, card_id, card.get("qty", 1))
+            # )
+            # conn.commit()
 
 
 async def add_decks_by_html(conn: sqlite3.Connection, data: dict):
