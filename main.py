@@ -29,7 +29,6 @@ def find_project_root(marker=".git"):
 
 
 def get_last_log_line():
-    """Read the last line from fake_seventeenlands.log"""
     global log_line_count
     try:
         if not log_file_path.exists():
@@ -174,21 +173,19 @@ async def check_logs_stream(request: Request):
                         card_count_by_name = build_card_count_map(arena_ids, current_deck_cards)
                         matching_decks = find_matching_decks(cursor, current_deck_cards)
                         enrich_decks_with_cards(cursor, matching_decks, card_count_by_name)
-                        
-                        # Add type counts to each matching deck
+
                         for deck in matching_decks:
                             type_counts = {}
                             for card in deck.get('cards', []):
-                                if 'types' in card:
-                                    # Handle basic card types (Creature, Instant, etc.)
-                                    if card["types"]:
-                                        card_types = card['types'].strip().lower()
+                                if 'type_line' in card:
+                                    if card["type_line"]:
+                                        card_types = card['type_line'].strip().lower()
                                         type_counts[card_types] = type_counts.get(card_types, 0) + 1
                             deck['type_counts'] = type_counts
                     else:
                         current_deck_cards = []
                         matching_decks = []
-                    
+
                     html_content = templates.get_template("list_cards.html").render(
                         cards=current_deck_cards,
                         matching_decks=matching_decks
@@ -206,7 +203,6 @@ async def check_logs_stream(request: Request):
     return EventSourceResponse(event_generator())
 
 
-
 @app.post("/add/untapped-decks-urls")
 async def add_untapped_decks_url_list_route(request: Request, conn: DBConnDep, url_list: Annotated[str, Form(...)]):
     try:
@@ -220,17 +216,14 @@ async def add_untapped_decks_url_list_route(request: Request, conn: DBConnDep, u
             decks = []
 
         cursor = conn.cursor()
-        
+
         await add_decks_to_db(conn, decks)
 
-
         added_decks = get_decks(cursor)
-        # await add_decks_to_db(conn, decks)
 
         return templates.TemplateResponse(
             request=request, name="untapped.html", context={"decks": added_decks}
         )
-
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing decks: {str(e)}")
@@ -256,7 +249,6 @@ async def add_untapped_decks_html_route(request: Request, conn: DBConnDep, html_
 
 
 async def parse_untapped_html(html_doc: str):
-    """get cookies and deck urls"""
     from bs4 import BeautifulSoup
     import jsonpickle
 
@@ -287,7 +279,7 @@ async def parse_untapped_html(html_doc: str):
     if not result["deck_urls"]:
         raise ValueError("No deck URLs found in HTML")
 
-    print(f"Found {len(result['deck_urls'])} deck URLs")
+    # print(f"Found {len(result['deck_urls'])} deck URLs")
     return result
 
 
@@ -310,59 +302,54 @@ def parse_arena_ids_from_log(log_entry: str) -> list[str]:
 def fetch_current_deck_cards(cursor, arena_ids: list[str]) -> list[dict]:
     if not arena_ids:
         return []
-    
-    # distinct_arena_ids = list(set(arena_ids))
 
     placeholders = ", ".join("?" * len(arena_ids))
     query = f"""
-        SELECT DISTINCT name, manaCost, types, mtgArenaId, scryfallId, printedName, flavorName
-        FROM cards 
-        WHERE mtgArenaId IN ({placeholders})
+        SELECT DISTINCT name, mana_cost, type_line, arena_id, id, printed_name, flavor_name
+        FROM scryfall_all_cards 
+        WHERE arena_id IN ({placeholders})
     """
     cursor.execute(query, arena_ids)
 
     cards = [dict(row) for row in cursor.fetchall()]
-    
-    found_ids = list(set([card["mtgArenaId"] for card in cards]))
-    
+
+    found_ids = list(set([card["arena_id"] for card in cards]))
+
     missing_ids = list(set(arena_ids) - set(found_ids))
-    
+
     if missing_ids:
         missing_cards = []
         print(f"Missing {len(missing_ids)} cards: {missing_ids}")
         _placeholders = ", ".join("?" * len(missing_ids))
         _query = f"""
-            SELECT DISTINCT name, CAST(id as VARCHAR(20)) as mtgArenaId from cards_from_17_lands_2
+            SELECT DISTINCT name, CAST(id as VARCHAR(20)) as arena_id FROM '17lands'
             WHERE id IN ({_placeholders})
         """
         cursor.execute(_query, missing_ids)
         missing_cards = [dict(row) for row in cursor.fetchall()]
-        
+
         for card in missing_cards:
-            # search for the cards by name, get the first card and get manaCost, types, scryfallId 
-            __query = "Select name, manaCost, types, scryfallId, printedName, flavorName from cards where name = ? limit 1"
+            __query = "SELECT name, mana_cost, type_line, id, printed_name, flavor_name FROM scryfall_all_cards WHERE name = ? LIMIT 1"
             cursor.execute(__query, (card["name"],))
             result = cursor.fetchone()
             if not result:
-                __query = "Select name, manaCost, types, scryfallId, printedName, flavorName from cards where printedName = ? or flavorName = ? limit 1"
+                __query = "SELECT name, mana_cost, type_line, id, printed_name, flavor_name FROM scryfall_all_cards WHERE printed_name = ? OR flavor_name = ? LIMIT 1"
                 cursor.execute(__query, (card["name"], card["name"]))
                 result = cursor.fetchone()
-            
-            # if result:
-            card["name"] = result["name"]
-            card["manaCost"] = result["manaCost"]
-            card["types"] = result["types"]
-            card["scryfallId"] = result["scryfallId"]
-            card["printedName"] = result["printedName"]
-            card["flavorName"] = result["flavorName"]
+
+            if result:
+                card["name"] = result["name"]
+                card["mana_cost"] = result["mana_cost"]
+                card["type_line"] = result["type_line"]
+                card["id"] = result["id"]
+                card["printed_name"] = result["printed_name"]
+                card["flavor_name"] = result["flavor_name"]
 
         cards.extend(missing_cards)
-    # cards.extend([dict(row) for row in cursor.fetchall()])
-    
 
     id_counts = Counter(arena_ids)
     for card in cards:
-        card["count"] = id_counts.get(card["mtgArenaId"], 0)
+        card["count"] = id_counts.get(card["arena_id"], 0)
 
     return cards
 
@@ -372,7 +359,7 @@ def build_card_count_map(arena_ids: list[str], cards: list[dict]) -> dict[str, i
     card_count_map = {}
 
     for card in cards:
-        card_count_map[card["name"]] = id_counts.get(card["mtgArenaId"], 0)
+        card_count_map[card["name"]] = id_counts.get(card["arena_id"], 0)
 
     return card_count_map
 
@@ -394,7 +381,7 @@ def find_matching_decks(cursor, current_cards: list[dict]) -> list[dict]:
             (SELECT COUNT(*) FROM deck_cards WHERE deck_id = d.id) as total_deck_cards
         FROM decks d
         JOIN deck_cards dc ON d.id = dc.deck_id
-        JOIN cards c ON dc.card_id = c.id
+        JOIN scryfall_all_cards c ON dc.card_id = c.id
         WHERE c.name IN ({placeholders})
         GROUP BY d.id
         ORDER BY matched_cards DESC
@@ -407,11 +394,11 @@ def find_matching_decks(cursor, current_cards: list[dict]) -> list[dict]:
 def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str, int]):
     for deck in decks:
         deck_cards_query = """
-            SELECT c.name, dc.quantity, c.manaCost, c.types, c.mtgArenaId, c.scryfallId
+            SELECT c.name, dc.quantity, c.mana_cost, c.type_line, c.arena_id, c.id
             FROM deck_cards dc
-            JOIN cards c ON dc.card_id = c.id
+            JOIN scryfall_all_cards c ON dc.card_id = c.id
             WHERE dc.deck_id = ?
-            ORDER BY c.manaValue, c.name
+            ORDER BY c.name
         """
         cursor.execute(deck_cards_query, (deck['id'],))
         deck['cards'] = [dict(row) for row in cursor.fetchall()]
@@ -437,7 +424,7 @@ async def fetch_untapped_decks_from_api(conn: DBConnDep, cookies: dict | None, u
 
     if not cookies:
         cursor = conn.cursor()
-        cursor.execute("SELECT sessionid, csrfToken FROM user_info ORDER BY added_at DESC LIMIT 1")
+        cursor.execute("SELECT session_id, csrf_token FROM user_info ORDER BY added_at DESC LIMIT 1")
         cookies_row = cursor.fetchone()
         cookies = {
             "sessionid": cookies_row[0],
@@ -466,13 +453,13 @@ async def fetch_untapped_decks_from_api(conn: DBConnDep, cookies: dict | None, u
 
             except httpx.HTTPStatusError as e:
                 print(f"HTTP error for {name}: {e.response.status_code}")
-                decks[name] = {"name": name, "url": url, "cards": [], "error": str(e)}
+                decks.append({"name": name, "url": url, "cards": [], "error": str(e)})
             except httpx.RequestError as e:
                 print(f"Request failed for {name}: {e}")
-                decks[name] = {"name": name, "url": url, "cards": [], "error": str(e)}
+                decks.append({"name": name, "url": url, "cards": [], "error": str(e)})
             except ValueError as e:
                 print(f"JSON decode failed for {name}: {e}")
-                decks[name] = {"name": name, "url": url, "cards": [], "error": "Invalid JSON"}
+                decks.append({"name": name, "url": url, "cards": [], "error": "Invalid JSON"})
 
     return decks
 
@@ -489,7 +476,6 @@ async def fetch_untapped_decks_from_html(conn, data: dict):
         "csrf_token": data["cookies"]["csrf_token"],
     }
 
-    # decks = await fetch_untapped_decks_from_api(untapped_decks)
     try:
         decks = await fetch_untapped_decks_from_api(conn, cookies, untapped_decks)
     except Exception as e:
@@ -498,10 +484,9 @@ async def fetch_untapped_decks_from_html(conn, data: dict):
     return decks
 
 
-
 async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
     cursor = conn.cursor()
-    
+
     for deck in decks:
         if deck.get("error"):
             print(f"Skipping deck {deck['name']} due to error: {deck['error']}")
@@ -512,18 +497,19 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
             (deck["name"], "untapped", deck["url"], datetime.now())
         )
         deck_id = cursor.lastrowid
-        
-        for card in deck.get("cards", []):
-            unique_id = card.get("scryfallId") or card.get("mtgArenaId")
 
-            if unique_id:
+        for card in deck.get("cards", []):
+            scryfall_id = card.get("scryfallId") or card.get("id")
+            arena_id = card.get("mtgArenaId") or card.get("arena_id")
+
+            if scryfall_id or arena_id:
                 cursor.execute(
-                    "SELECT id FROM cards WHERE scryfallId = ? OR mtgArenaId = ?",
-                    (card.get("scryfallId"), card.get("mtgArenaId"))
+                    "SELECT id FROM scryfall_all_cards WHERE id = ? OR arena_id = ?",
+                    (scryfall_id, arena_id)
                 )
             else:
                 cursor.execute(
-                    "SELECT id FROM cards WHERE name = ?",
+                    "SELECT id FROM scryfall_all_cards WHERE name = ?",
                     (card["name"],)
                 )
 
@@ -533,17 +519,27 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
                 card_id = result[0]
             else:
                 cursor.execute(
-                    """INSERT INTO cards 
-                    (name, manaCost, manaValue, power, originalText, type, types, 
-                     mtgArenaId, scryfallId, availability, colors, keywords) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (card.get("name"), card.get("manaCost"), card.get("manaValue"),
-                     card.get("power"), card.get("originalText"), card.get("type"),
-                     str(card.get("types", [])) if card.get("types") else None,
-                     card.get("mtgArenaId"), card.get("scryfallId"),
-                     str(card.get("availability", [])) if card.get("availability") else None,
-                     str(card.get("colors", [])) if card.get("colors") else None,
-                     str(card.get("keywords", [])) if card.get("keywords") else None)
+                    """INSERT INTO scryfall_all_cards 
+                    (object, id, name, arena_id, layout, color_identity, colors, 
+                     mana_cost, type_line, oracle_text, rarity, games, keywords, power, toughness) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        "card",
+                        scryfall_id,
+                        card.get("name"),
+                        arena_id,
+                        card.get("layout"),
+                        card.get("color_identity") or card.get("colorIdentity"),
+                        card.get("colors"),
+                        card.get("manaCost") or card.get("mana_cost"),
+                        card.get("type") or card.get("type_line"),
+                        card.get("originalText") or card.get("oracle_text"),
+                        card.get("rarity"),
+                        card.get("availability") or card.get("games"),
+                        card.get("keywords"),
+                        card.get("power"),
+                        card.get("toughness"),
+                    )
                 )
                 card_id = cursor.lastrowid
 
@@ -563,9 +559,8 @@ async def add_decks_by_html(conn: sqlite3.Connection, data: dict):
     conn.commit()
 
     decks = await fetch_untapped_decks_from_html(conn, data)
-    
-    await add_decks_to_db(conn, decks)
 
+    await add_decks_to_db(conn, decks)
 
 
 def get_decks(cursor):
@@ -576,13 +571,13 @@ def get_decks(cursor):
            d.url       as deck_url,
            c.name      as name,
            dc.quantity as quantity,
-           c.manaCost  as manaCost,
-           c.type      as type
+           c.mana_cost as mana_cost,
+           c.type_line as type_line
     FROM decks d
-             inner join deck_cards dc
-                        on d.id = dc.deck_id
-             left join cards c
-                       on dc.card_id = c.id
+             INNER JOIN deck_cards dc
+                        ON d.id = dc.deck_id
+             LEFT JOIN scryfall_all_cards c
+                       ON dc.card_id = c.id
     ORDER BY added_at DESC;
     """)
     rows = cursor.fetchall()
@@ -604,8 +599,8 @@ def get_decks(cursor):
         card_info = {
             "name": card["name"],
             "quantity": card["quantity"],
-            "manaCost": card["manaCost"],
-            "type": card["type"]
+            "mana_cost": card["mana_cost"],
+            "type_line": card["type_line"]
         }
         decks[deck_id]["cards"].append(card_info)
     return list(decks.values())
