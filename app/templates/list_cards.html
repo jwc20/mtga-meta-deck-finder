@@ -1,8 +1,30 @@
 <style>
+    .mana-pool {
+        margin-top: 2rem;
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 1rem;
+    }
+
+    .mana-table {
+        display: table;
+        margin-bottom: 0 !important;
+    }
+
+    .mana-table th {
+        display: table-cell;
+        text-align: center;
+    }
+
+    .mana-table td {
+        display: table-cell;
+        text-align: center;
+    }
+
     .missing-cards {
         margin-top: 0.5rem;
     }
-    
+
     .ms-cost {
         line-height: 0.2rem;
     }
@@ -194,8 +216,30 @@
                 <span>Missing Cards: {{ missing_ids }}</span>
             </div>
         {% endif %}
-    </section>
+        <div>
+            <div class="mana-pool">
+                <table class="mana-table">
+                    {% if opponent_mana %}
+                        <thead>
+                        <tr>
+                            {% for color, count in opponent_mana %}
+                                <th>{{ color | safe }}</th>
+                            {% endfor %}
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            {% for color, count in opponent_mana %}
+                                <td>{{ count }}</td>
+                            {% endfor %}
+                        </tr>
+                        </tbody>
+                    {% endif %}
 
+                </table>
+            </div>
+        </div>
+    </section>
     <section>
         <div class="meta-decks">
             <div class="grid">
@@ -215,8 +259,8 @@
                                     {% for card in type_cards|sort(attribute='mana_cost_value', reverse=true) %}
                                         {% set is_played = card.current_count is defined and card.current_count > 0 %}
                                         <li>
-{#                                            <span>({{ card.current_count }} /</span>#}
-{#                                            <span>{{ card.quantity }})</span>#}
+                                            {#                                            <span>({{ card.current_count }} /</span>#}
+                                            {#                                            <span>{{ card.quantity }})</span>#}
                                             <span>{{ card.quantity }}</span>
                                             <span class="card-hover{% if card.is_playable %} card-playable{% endif %}{% if is_played %} card-played{% endif %}">
                                                 {{ card.name }}
@@ -226,7 +270,8 @@
                                                          alt="{{ card.name }}">
                                                 {% endif %}
                                             </span>
-                                            {% if is_played %}<span class="card-played-indicator">✓</span>{% endif %}
+                                            {% if is_played %}
+                                                <span class="card-played-indicator">✓</span>{% endif %}
                                             <div class="mana-cost">
                                                 <span>{{ card.mana_cost_tags | safe }}</span>
                                             </div>

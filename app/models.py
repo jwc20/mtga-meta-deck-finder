@@ -15,6 +15,23 @@ class ManaPool:
     def total(self) -> int:
         return self.W + self.U + self.B + self.R + self.G + self.C
 
+    def to_dict(self) -> dict:
+        _dict =  {
+            "W": self.W,
+            "U": self.U,
+            "B": self.B,
+            "R": self.R,
+            "G": self.G,
+            "C": self.C,
+        }
+        _dict = {k: v for k, v in _dict.items() if v != 0}
+        return _dict
+    
+    def to_list_tuple(self) -> list[tuple[str, int]]:
+        # remove colors with 0 count
+        return list((color, getattr(self, color)) for color in ["W", "U", "B", "R", "G", "C"] if getattr(self, color) > 0)
+        
+    
     def can_pay(self, cost: "ManaCost") -> bool:
         remaining = self.total
 

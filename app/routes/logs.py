@@ -86,13 +86,15 @@ async def check_logs_stream(request: Request):
 
                     enrich_decks_with_playability(matching_decks, opponent_mana)
                     
-                    
-
+                    opponent_mana_tags = []
+                    for color, count in opponent_mana.to_list_tuple():
+                        _tag = f'<i class="ms ms-{color.lower()} ms-cost ms-shadow"></i>'
+                        opponent_mana_tags.append((_tag, count))
 
                     html_content = templates.get_template("list_cards.html").render(
                         cards=current_deck_cards,
                         matching_decks=matching_decks,
-                        opponent_mana=opponent_mana,
+                        opponent_mana=opponent_mana_tags,
                         missing_ids=missing_ids
                     )
 
