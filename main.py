@@ -14,6 +14,9 @@ from datetime import datetime
 import os
 from sse_starlette import EventSourceResponse
 
+import re
+from dataclasses import dataclass
+
 log_line_count = 0
 last_processed_log_line_count = 0
 
@@ -28,7 +31,7 @@ def find_project_root(marker=".git"):
     return current.parent
 
 
-def get_last_log_line():
+def get_last_log_line() -> str | None:
     global log_line_count
     try:
         if not log_file_path.exists():
@@ -125,8 +128,7 @@ async def add_logging_middleware(request: Request, call_next):
     return response
 
 
-import re
-from dataclasses import dataclass
+
 
 
 @dataclass
@@ -230,10 +232,10 @@ def enrich_decks_with_playability(decks: list[dict], opponent_mana: ManaPool) ->
 ##############################################################################
 
 
-@app.get("/follow", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
 async def list_follow(request: Request, conn: DBConnDep):
     cursor = conn.cursor()
-    decks = get_decks(cursor)
+    decks = await get_decks(cursor)
     return templates.TemplateResponse(
         request=request, name="follow.html", context={"decks": decks}
     )
@@ -242,7 +244,7 @@ async def list_follow(request: Request, conn: DBConnDep):
 @app.get("/untapped", response_class=HTMLResponse)
 async def list_untapped(request: Request, conn: DBConnDep):
     cursor = conn.cursor()
-    decks = get_decks(cursor)
+    decks = await get_decks(cursor)
     return templates.TemplateResponse(
         request=request, name="untapped.html", context={"decks": decks}
     )
@@ -333,10 +335,8 @@ async def add_untapped_decks_url_list_route(request: Request, conn: DBConnDep, u
             decks = []
 
         cursor = conn.cursor()
-
         await add_decks_to_db(conn, decks)
-
-        added_decks = get_decks(cursor)
+        added_decks = await get_decks(cursor)
 
         return templates.TemplateResponse(
             request=request, name="untapped.html", context={"decks": added_decks}
@@ -545,14 +545,6 @@ def calculate_mana_cost_value(mana_cost: str) -> tuple[int, str]:
     if not mana_cost:
         return value, mana_tags
 
-    # for char in mana_cost:
-    #     # get the value inside {} bracket and count as one
-    #     if char == '{' and not mana_cost[mana_cost.index(char) + 1].isdigit():
-    #         value += 1
-    #         class_name += "ms-" + mana_cost[mana_cost.index(char) + 1].lower() + " "
-    #     if char.isdigit():
-    #         value += int(char)
-    #         class_name += "ms-" + char.lower() + " "
     for i in range(len(mana_cost)):
         if mana_cost[i] == '{' and not mana_cost[i + 1].isdigit():
             value += 1
@@ -564,7 +556,7 @@ def calculate_mana_cost_value(mana_cost: str) -> tuple[int, str]:
     return value, mana_tags.strip()
 
 
-def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str, int]):
+def enrich_decks_with_cards(cursor, decks: list[dict], card_count_map: dict[str, int]) -> None:
     for deck in decks:
         deck_cards_query = """
             SELECT c.name, dc.quantity, c.mana_cost, c.type_line, c.arena_id, c.id, c.component
@@ -650,7 +642,7 @@ def parse_card_types(card_type: str) -> Tuple[List[str], str, List[str]]:
     return super_types, " ".join(types), sub_types
 
 
-async def build_untapped_decks_api_urls(deck_urls: list):
+async def build_untapped_decks_api_urls(deck_urls: list) -> list[tuple[str, str, str]]:
     base_api_url = "https://api.mtga.untapped.gg/api/v1/decks/pricing/cardkingdom/"
     UntappedDeck = namedtuple("Deck", ["name", "url", "api_url"])
     untapped_decks = []
@@ -662,7 +654,7 @@ async def build_untapped_decks_api_urls(deck_urls: list):
     return untapped_decks
 
 
-async def fetch_untapped_decks_from_api(conn: DBConnDep, cookies: dict | None, untapped_decks: list):
+async def fetch_untapped_decks_from_api(conn: DBConnDep, cookies: dict | None, untapped_decks: list) -> list[dict]:
     import httpx
 
     if not cookies:
@@ -707,7 +699,7 @@ async def fetch_untapped_decks_from_api(conn: DBConnDep, cookies: dict | None, u
     return decks
 
 
-async def fetch_untapped_decks_from_html(conn, data: dict):
+async def fetch_untapped_decks_from_html(conn, data: dict) -> list[dict]:
     cookies = data.get("cookies", {})
     if not cookies:
         raise ValueError("No cookies provided for API requests")
@@ -727,7 +719,7 @@ async def fetch_untapped_decks_from_html(conn, data: dict):
     return decks
 
 
-async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
+async def add_decks_to_db(conn: sqlite3.Connection, decks: list) -> None:
     cursor = conn.cursor()
 
     for deck in decks:
@@ -753,19 +745,6 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
         deck_id = cursor.lastrowid
 
         for card in deck.get("cards", []):
-            # scryfall_id = card.get("scryfallId") or card.get("id")
-            # arena_id = card.get("mtgArenaId") or card.get("arena_id")
-            # 
-            # if scryfall_id or arena_id:
-            #     cursor.execute(
-            #         "SELECT id FROM scryfall_all_cards WHERE id = ? OR arena_id = ?",
-            #         (scryfall_id, arena_id)
-            #     )
-            # else:
-            #     cursor.execute(
-            #         "SELECT id FROM scryfall_all_cards WHERE name = ?",
-            #         (card["name"],)
-            #     )
             cursor.execute(
                 "SELECT id FROM scryfall_all_cards WHERE name = ?",
                 (card["name"],)
@@ -785,40 +764,9 @@ async def add_decks_to_db(conn: sqlite3.Connection, decks: list):
                 (deck_id, card_id, card.get("qty", 1), card["name"], "main")
             )
             conn.commit()
-            # else:
-            #     cursor.execute(
-            #         """INSERT INTO scryfall_all_cards 
-            #         (object, id, name, arena_id, layout, color_identity, colors, 
-            #          mana_cost, type_line, oracle_text, rarity, games, keywords, power, toughness) 
-            #         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            #         (
-            #             "card",
-            #             scryfall_id,
-            #             card.get("name"),
-            #             arena_id,
-            #             card.get("layout"),
-            #             card.get("color_identity") or card.get("colorIdentity"),
-            #             card.get("colors"),
-            #             card.get("manaCost") or card.get("mana_cost"),
-            #             card.get("type") or card.get("type_line"),
-            #             card.get("originalText") or card.get("oracle_text"),
-            #             card.get("rarity"),
-            #             card.get("availability") or card.get("games"),
-            #             card.get("keywords"),
-            #             card.get("power"),
-            #             card.get("toughness"),
-            #         )
-            #     )
-            #     card_id = cursor.lastrowid
-
-            # cursor.execute(
-            #     "INSERT OR IGNORE INTO deck_cards (deck_id, card_id, quantity) VALUES (?, ?, ?)",
-            #     (deck_id, card_id, card.get("qty", 1))
-            # )
-            # conn.commit()
 
 
-async def add_decks_by_html(conn: sqlite3.Connection, data: dict):
+async def add_decks_by_html(conn: sqlite3.Connection, data: dict) -> None:
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO user_info (sessionid, csrfToken, added_at) VALUES (?, ?, ?)",
@@ -831,7 +779,7 @@ async def add_decks_by_html(conn: sqlite3.Connection, data: dict):
     await add_decks_to_db(conn, decks)
 
 
-def get_decks(cursor):
+async def get_decks(cursor: sqlite3.Cursor) -> list[dict]:
     cursor.execute("""
     SELECT d.id        as deck_id,
            d.name      as deck_name,
