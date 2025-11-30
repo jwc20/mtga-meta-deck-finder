@@ -16,8 +16,9 @@ from app.services.cards import (
     fetch_current_deck_cards,
     build_card_count_map,
     find_matching_decks,
-    enrich_decks_with_cards,
+    enrich_decks_with_cards, update_current_deck_cards,
 )
+from app.utils.cards import fetch_missing_cards_from_17lands
 from app.utils.mana import enrich_decks_with_playability
 from app.templates import templates
 
@@ -74,12 +75,19 @@ async def check_logs_stream(request: Request):
                     opponent_mana = ManaPool(**lands_dict)
 
                     enrich_decks_with_playability(matching_decks, opponent_mana)
+                    
+                    
+                    # handle cards with missing ids
+                    print(f"Missing {len(missing_ids)} cards: {missing_ids}")
+                    if missing_ids:
+                        found_cards = await fetch_missing_cards_from_17lands(missing_ids)
+                        if found_cards:
+                            await update_current_deck_cards(conn, found_cards)
 
                     html_content = templates.get_template("list_cards.html").render(
                         cards=current_deck_cards,
                         matching_decks=matching_decks,
                         opponent_mana=opponent_mana,
-                        missing_ids=missing_ids
                     )
 
                     yield {

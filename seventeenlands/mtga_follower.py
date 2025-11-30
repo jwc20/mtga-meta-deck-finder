@@ -849,7 +849,9 @@ class Follower:
                     owner = game_object["ownerSeatId"]
                     instance_id = game_object["instanceId"]
                     card_id = game_object["overlayGrpId"]
-
+                    
+                    
+                    # log opponent cards
                     previous_cards = list(self.objects_by_owner[owner].values()) if instance_id in \
                                                                                     self.objects_by_owner[
                                                                                         owner] else None
@@ -859,6 +861,12 @@ class Follower:
                     if previous_cards is None or previous_cards != current_cards:
                         if self.seat_id and owner != self.seat_id:
                             logger.info(f"::Opponent (Player {owner})::cards: {current_cards}")
+
+                    # alternative method
+                    # opponent_id = 2 if self.seat_id == 1 else 1
+                    # opponent_card_ids = [
+                    #     c for c in self.objects_by_owner.get(opponent_id, {}).values()
+                    # ]
 
                 for zone in game_state_message.get("zones", []):
                     if zone["type"] == "ZoneType_Hand":
@@ -1215,7 +1223,7 @@ class Follower:
                 "service_metadata": self.game_service_metadata,
                 "client_metadata": self.game_client_metadata,
             }
-            # logger.info(f"Completed game: {game["event_name"]} - {game["match_id"]}")
+            logger.info(f"Completed game: {game["event_name"]} - {game["match_id"]}")
 
             # logger.info(f"Adding game history ({len(self.game_history_events)} events)")
             game["history"] = {

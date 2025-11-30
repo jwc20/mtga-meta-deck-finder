@@ -1,5 +1,5 @@
 import sqlite3
-from collections import Counter
+from collections import Counter, namedtuple
 
 from app.utils.cards import parse_card_types, calculate_mana_cost_value
 
@@ -158,3 +158,34 @@ def enrich_decks_with_cards(cursor: sqlite3.Cursor, decks: list[dict], card_coun
 
         for card in deck['cards']:
             card['current_count'] = card_count_map.get(card['name'], 0)
+            
+            
+            
+            
+async def update_current_deck_cards(conn: sqlite3.Connection, cards: list[dict]) -> None:
+    import re
+    cursor = conn.cursor()
+    cards_to_update = []
+    for card in cards:
+        match = re.search(r'/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\.', card["image_url"])
+        if match:
+            scryfall_id = match.group(1)
+        else:
+            scryfall_id = ""
+        card_to_update = {
+            "name": card["name"],
+            "arena_id": card["id"],
+            "image_url": card["image_url"],
+            "scryfall_id": scryfall_id
+        }
+        cards_to_update.append(card_to_update)
+    
+    # search by scryfall_id and update arena_id
+    for card in cards_to_update:
+        cursor.execute("SELECT name, arena_id FROM scryfall_all_cards WHERE id = ?", (card['scryfall_id'],))
+        result = cursor.fetchone()
+        if result and result['arena_id'] != card['arena_id']:
+            print(f"Update card {result['name']} with arena_id {card['arena_id']} and scryfall_id {card['scryfall_id']}")
+            cursor.execute("UPDATE scryfall_all_cards SET arena_id = ? WHERE id = ?", (card['arena_id'], card['scryfall_id']))
+    conn.commit()
+        

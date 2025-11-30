@@ -59,3 +59,24 @@ def calculate_mana_cost_value(mana_cost: str) -> tuple[int, str]:
             mana_tags += '<i class="ms ms-' + mana_cost[i].lower() + ' ms-cost ms-shadow"></i> '
 
     return value, mana_tags.strip()
+
+async def fetch_missing_cards_from_17lands(ids: list[str]) -> list[dict] | None:
+    import httpx
+    
+    missing_ids_str = ",".join(ids)
+    url = f"https://www.17lands.com/data/cards?ids={missing_ids_str}"
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_json = response.json()
+            cards = response_json.get("cards", [])
+            return cards
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP error {e.response.status_code}")
+        except httpx.RequestError as e:
+            print(f"Request failed {e}")
+        except ValueError as e:
+            print(f"JSON decode failed {e}")
+    
