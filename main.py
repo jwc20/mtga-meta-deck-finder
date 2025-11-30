@@ -484,7 +484,7 @@ def build_card_count_map(arena_ids: list[str], cards: list[dict]) -> dict[str, i
     card_count_map = {}
 
     for card in cards:
-        card_count_map[card["name"]] = id_counts.get(card["arena_id"], 0)
+        card_count_map[card["name"]] = id_counts.get(card["arena_id"], 1)
 
     return card_count_map
 
