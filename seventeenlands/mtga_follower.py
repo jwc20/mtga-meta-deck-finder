@@ -34,7 +34,6 @@ import dateutil.parser
 import api_client
 import logging_utils
 
-
 logger = logging_utils.get_logger("17Lands")
 
 
@@ -348,6 +347,7 @@ class Follower:
         self.drawn_cards_by_instance_id: defaultdict[Any, dict[Any, Any]] = defaultdict(
             dict
         )
+        self.opponent_actions: list[Any] = []
         self.cards_in_hand: defaultdict[Any, list[Any]] = defaultdict(list)
         self.user_screen_name: Optional[str] = None
         self.full_screen_name: Optional[str] = None
@@ -849,8 +849,7 @@ class Follower:
                     owner = game_object["ownerSeatId"]
                     instance_id = game_object["instanceId"]
                     card_id = game_object["overlayGrpId"]
-                    
-                    
+
                     # log opponent cards
                     previous_cards = list(self.objects_by_owner[owner].values()) if instance_id in \
                                                                                     self.objects_by_owner[
@@ -860,15 +859,54 @@ class Follower:
 
                     if previous_cards is None or previous_cards != current_cards:
                         if self.seat_id and owner != self.seat_id:
+                            # print(f"opponent: {instance_id} {card_id}")
                             logger.info(f"::Opponent (Player {owner})::cards: {current_cards}")
-
+                        # else:
+                        #     print(f"player: {instance_id}")
+                        #     print(f"::Player (Player {owner})::cards: {current_cards}")
+                        
                     # alternative method
                     # opponent_id = 2 if self.seat_id == 1 else 1
                     # opponent_card_ids = [
                     #     c for c in self.objects_by_owner.get(opponent_id, {}).values()
                     # ]
 
+                actions = game_state_message.get("actions", [])
                 for zone in game_state_message.get("zones", []):
+                    player_seat_id =self.seat_id
+                    opponent_seat_id = 2 if player_seat_id == 1 else 1
+                    
+                    if zone["type"] == "ZoneType_Battlefield":
+                        # print(zone)
+                        object_instance_ids = zone.get("objectInstanceIds", [])
+                        player_objects_instance_ids = self.drawn_cards_by_instance_id[player_seat_id].keys()
+                        # set_objects_on_battlefield = set(object_instance_ids)
+                        # set_player = set(player_objects_instance_ids)
+                        # 
+                        # opponent_objects_instance_ids = set_objects_on_battlefield.difference(set_player)
+
+                        opponent_objects_instance_ids = [i for i in object_instance_ids if i not in player_objects_instance_ids]
+                        previous_opponent_actions = self.opponent_actions.copy()
+                        if actions:
+                            for instance_id in opponent_objects_instance_ids:
+                                # _actions = game_state_message.get("actions", [])
+                                for action in actions:
+                                    if action.get("action").get("instanceId") == instance_id and opponent_seat_id == action.get("seatId"):
+                                        # get opponent's actions played
+                                        # types: ActionType_Activate_Mana, ActionType_Activate
+                                        # print(action)
+                                        
+                                        # update opponent actions keep only the unique values, note that action is a dictionary object and Error cannot use 'dict' as a set element (unhashable type: 'dict')
+                                        # cannot use set() to remove duplicates from a list of dictionaries
+                                        self.opponent_actions = list({action.get("action").get("instanceId"): action for action in actions}.values())
+                            
+                            # print(self.opponent_actions)
+                            # print(f"length: {len(self.opponent_actions)}")
+                        
+                        if previous_opponent_actions != self.opponent_actions:
+                            print("opponent actions changed")
+                            print(self.opponent_actions)
+                        
                     if zone["type"] == "ZoneType_Hand":
                         owner = zone["ownerSeatId"]
                         player_objects = self.objects_by_owner[owner]
@@ -884,6 +922,8 @@ class Follower:
                                 self.drawn_cards_by_instance_id[owner][instance_id] = (
                                     card_id
                                 )
+                                # print(f"player's drawn cards: {self.drawn_cards_by_instance_id}")
+                         
 
                 players_deciding_hand = {
                     (p["systemSeatNumber"], p.get("mulliganCount", 0))
