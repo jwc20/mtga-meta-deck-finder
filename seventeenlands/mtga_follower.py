@@ -863,9 +863,9 @@ class Follower:
 
                     if previous_cards is None or previous_cards != current_cards:
                         if self.seat_id and owner != self.seat_id:
-                            # print(f"opponent: {instance_id} {card_id}")
-                            logger.info(f"::Opponent (Player {owner})::cards: {current_cards}")
-                            print(list(self.objects_by_owner[owner].items()))
+                            logger.info(f"::Opponent::cards: {current_cards}")
+                            # logger.info(f"::Opponent (Player {owner})::cards: {current_cards}")
+                            # print(list(self.objects_by_owner[owner].items()))
                         # else:
                         #     print(f"player: {instance_id}")
                         #     print(f"::Player (Player {owner})::cards: {current_cards}")
@@ -879,6 +879,7 @@ class Follower:
                 
                 # actions
                 actions = game_state_message.get("actions", [])
+                previous_opponent_actions = self.opponent_actions.copy()
                 for zone in game_state_message.get("zones", []):
                     player_seat_id =self.seat_id
                     opponent_seat_id = 2 if player_seat_id == 1 else 1
@@ -894,7 +895,7 @@ class Follower:
                         # opponent_objects_instance_ids = set_objects_on_battlefield.difference(set_player)
 
                         opponent_objects_instance_ids = [i for i in object_instance_ids if i not in player_objects_instance_ids]
-                        previous_opponent_actions = self.opponent_actions.copy()
+                        
                         if actions:
                             for instance_id in opponent_objects_instance_ids:
                                 # _actions = game_state_message.get("actions", [])
@@ -913,11 +914,12 @@ class Follower:
                             # print(f"length: {len(self.opponent_actions)}")
                             # logger.info(f"::Opponent (Player {opponent_seat_id})::actions: {self.opponent_actions}")
                         
-                        if previous_opponent_actions != self.opponent_actions:
-                            from operator import itemgetter
-                            self.opponent_actions = sorted(self.opponent_actions, key=itemgetter("instanceId"))
-                            logger.info(f"::Opponent (Player {opponent_seat_id})::actions: {self.opponent_actions}")
+                        # if previous_opponent_actions != self.opponent_actions:
+                        #     from operator import itemgetter
+                        #     self.opponent_actions = sorted(self.opponent_actions, key=itemgetter("instanceId"))
+                        #     logger.info(f"::Opponent (Player {opponent_seat_id})::actions: {self.opponent_actions}")
 
+              
                     # to see what cards are in the player's hand
                     if zone["type"] == "ZoneType_Hand":
                         owner = zone["ownerSeatId"]
@@ -936,7 +938,12 @@ class Follower:
                                 )
                                 # print(f"player's drawn cards: {self.drawn_cards_by_instance_id}")
                                 
-                
+                                
+                if previous_opponent_actions != self.opponent_actions:
+                    from operator import itemgetter
+                    self.opponent_actions = sorted(self.opponent_actions, key=itemgetter("instanceId"))
+                    logger.info(f"::Opponent::actions: {self.opponent_actions}")
+
                 # annotations
                 previous_game_object_annotations = self.game_object_annotations.copy()
                 for annotation in game_state_message.get("annotations", []):
