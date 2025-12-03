@@ -1,4 +1,9 @@
+import logging
 from typing import Tuple, List, Set
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 MULTI_WORD_SUB_TYPES: Set[str] = {"Time Lord"}
 SUPER_TYPES: Set[str] = {"Basic", "Host", "Legendary", "Ongoing", "Snow", "World"}
@@ -60,12 +65,13 @@ def calculate_mana_cost_value(mana_cost: str) -> tuple[int, str]:
 
     return value, mana_tags.strip()
 
+
 async def fetch_missing_cards_from_17lands(ids: list[str]) -> tuple[list[dict], list[str]] | None:
-    import httpx
-    
     missing_ids_str = ",".join(ids)
     url = f"https://www.17lands.com/data/cards?ids={missing_ids_str}"
-    
+
+    logger.debug("Fetching cards from 17lands", extra={"count": len(ids)})
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(url)
@@ -73,11 +79,19 @@ async def fetch_missing_cards_from_17lands(ids: list[str]) -> tuple[list[dict], 
             response_json = response.json()
             cards = response_json.get("cards", [])
             found_ids = [str(c["id"]) for c in cards]
+            logger.info(
+                "Fetched cards from 17lands",
+                extra={"requested": len(ids), "found": len(found_ids)},
+            )
             return cards, found_ids
         except httpx.HTTPStatusError as e:
-            print(f"HTTP error {e.response.status_code}")
+            logger.error(
+                "HTTP error from 17lands",
+                extra={"status_code": e.response.status_code, "url": url},
+            )
         except httpx.RequestError as e:
-            print(f"Request failed {e}")
+            logger.error("Request to 17lands failed", extra={"error": str(e)})
         except ValueError as e:
-            print(f"JSON decode failed {e}")
-    
+            logger.error("JSON decode failed for 17lands response", extra={"error": str(e)})
+
+    return None

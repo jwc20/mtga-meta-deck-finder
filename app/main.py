@@ -1,17 +1,22 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
+from app.config import setup_logging, request_id_var, generate_request_id
 from app.routes import pages, decks, logs
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    logger.info("Starting application")
     init_db()
     yield
-    print("shutting down")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -26,9 +31,21 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_logging_middleware(request: Request, call_next):
-    print(f"Request path: {request.url.path}")
+    request_id = generate_request_id()
+    request_id_var.set(request_id)
+
+    logger.info(
+        "Request started",
+        extra={"method": request.method, "path": request.url.path},
+    )
+
     response: Response = await call_next(request)
-    print(f"Response status: {response.status_code}")
+
+    logger.info(
+        "Request completed",
+        extra={"method": request.method, "path": request.url.path, "status_code": response.status_code},
+    )
+
     return response
 
 
