@@ -120,10 +120,21 @@ async def fetch_untapped_decks_from_html(cursor: aiosqlite.Cursor, data: dict) -
 
 async def add_decks_by_html(conn: aiosqlite.Connection, data: dict) -> None:
     cursor = await conn.cursor()
-    await cursor.execute(
-        "INSERT INTO user_info (session_id, csrf_token, added_at) VALUES (?, ?, ?)",
-        (data["cookies"]["session_id"], data["cookies"]["csrf_token"], datetime.now())
-    )
-    await conn.commit()
-    decks = await fetch_untapped_decks_from_html(cursor=cursor, data=data)
-    await add_decks_to_db(conn, decks)
+    
+    try:
+        session_id = data["cookies"]["session_id"]
+        csrf_token = data["cookies"]["csrf_token"]
+        cursor.execute("SELECT id FROM user_info where session_id = ? and csrf_token = ?", (session_id, csrf_token))
+        user_info = await cursor.fetchone()
+        
+        if not user_info:
+            await cursor.execute(
+                "INSERT INTO user_info (session_id, csrf_token, added_at) VALUES (?, ?, ?)",
+                (session_id, csrf_token, datetime.now())
+            )
+            await conn.commit()
+            decks = await fetch_untapped_decks_from_html(cursor=cursor, data=data)
+            await add_decks_to_db(conn, decks)
+    except Exception as e:
+        print(f"Error adding decks: {e}")
+        
