@@ -52,7 +52,8 @@ async def build_untapped_decks_api_urls(deck_urls: list) -> list[tuple[str, str,
     return untapped_decks
 
 
-async def fetch_untapped_decks_from_api(cursor: aiosqlite.Cursor, cookies: dict | None, untapped_decks: list) -> list[dict]:
+async def fetch_untapped_decks_from_api(cursor: aiosqlite.Cursor, cookies: dict | None, untapped_decks: list) -> list[
+    dict]:
     import httpx
 
     if not cookies:
@@ -109,7 +110,7 @@ async def fetch_untapped_decks_from_html(cursor: aiosqlite.Cursor, data: dict) -
         "session_id": data["cookies"]["session_id"],
         "csrf_token": data["cookies"]["csrf_token"],
     }
-    
+
     try:
         decks = await fetch_untapped_decks_from_api(cursor=cursor, cookies=cookies, untapped_decks=untapped_decks)
     except Exception as e:
@@ -120,13 +121,13 @@ async def fetch_untapped_decks_from_html(cursor: aiosqlite.Cursor, data: dict) -
 
 async def add_decks_by_html(conn: aiosqlite.Connection, data: dict) -> None:
     cursor = await conn.cursor()
-    
+
     try:
         session_id = data["cookies"]["session_id"]
         csrf_token = data["cookies"]["csrf_token"]
         cursor.execute("SELECT id FROM user_info where session_id = ? and csrf_token = ?", (session_id, csrf_token))
         user_info = await cursor.fetchone()
-        
+
         if not user_info:
             await cursor.execute(
                 "INSERT INTO user_info (session_id, csrf_token, added_at) VALUES (?, ?, ?)",
@@ -137,4 +138,3 @@ async def add_decks_by_html(conn: aiosqlite.Connection, data: dict) -> None:
             await add_decks_to_db(conn, decks)
     except Exception as e:
         print(f"Error adding decks: {e}")
-        

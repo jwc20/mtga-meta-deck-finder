@@ -27,8 +27,8 @@ from app.utils.cards import fetch_missing_cards_from_17lands
 from app.utils.mana import enrich_decks_with_playability
 from app.templates import templates
 
-BASIC_MANA_ABILITY_MAP = {1001: "W", 1002: "U", 1003: "B", 1004: "R", 1005: "G"}
-ANNOTATION_MANA_MAP = {1: "W", 2: "U", 4: "B", 8: "R", 16: "G"}
+BASIC_MANA_ABILITY_MAP = {1001: "W", 1002: "U", 1003: "B", 1004: "R", 1005: "G", 1152: "C"}
+ANNOTATION_MANA_MAP = {1: "W", 2: "U", 4: "B", 8: "R", 16: "G", 32: "C"}
 
 router = APIRouter()
 
@@ -141,6 +141,8 @@ async def process_cards(conn, cursor, state: LogState) -> tuple[list[dict], list
 
 
 def process_mana(state: LogState) -> ManaPool:
+    # TODO: maybe go back to using the opponent's card in the battlefield to calculate the opponent's mana pool 
+    
     opponent_mana_dict = build_opponent_mana_from_actions(state.actions_log)
     opponent_mana_dict = update_mana_from_annotations(opponent_mana_dict, state.annotations_log)
     return ManaPool(**opponent_mana_dict)
