@@ -221,7 +221,7 @@ async def check_logs_stream(request: Request):
                             )
                             yield {"event": "log-update", "data": html_content}
 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0)
         finally:
             logger.info("SSE stream closed")
             await conn.close()

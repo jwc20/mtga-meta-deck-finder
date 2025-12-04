@@ -35,7 +35,7 @@ def get_logger(name: str) -> logging.Logger:
         logger.addHandler(handler)
 
     logger.setLevel(logging.INFO)
-    logger.info(f"Saving logs to {_LOG_FILENAME}")
+    # logger.info(f"Saving logs to {_LOG_FILENAME}")
 
     _loggers[name] = logger
 
