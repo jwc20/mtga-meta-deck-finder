@@ -1,11 +1,9 @@
 scripts/
-mtg_decks.db
-identifier.sqlite
-database.db
 card_data/
+*.db
+*.sqlite
+*.sqlite3
 
-_database_20251129.db
-AllPrintings.sqlite
 output_log*.txt
 Player*.log
 sample_logs/
