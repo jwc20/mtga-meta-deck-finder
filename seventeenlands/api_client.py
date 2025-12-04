@@ -5,7 +5,8 @@ from typing import Any, Optional
 
 import requests
 
-from seventeenlands import logging_utils, retry_utils
+import logging_utils
+import retry_utils
 
 logger = logging_utils.get_logger("api_client")
 

@@ -48,10 +48,10 @@ async def seed_if_empty(conn: aiosqlite.Connection):
     await cursor.execute("SELECT COUNT(*) FROM scryfall_all_cards")
     (scryfall_all_cards_count,) = await cursor.fetchone()
     
-    await cursor.execute("SELECT COUNT(*) FROM '17lands'")
+    await cursor.execute("SELECT COUNT(*) FROM '17lands')")
     (seventeenlands_decks_count,) = await cursor.fetchone()
 
-    await cursor.execute("SELECT COUNT(*) FROM '17lands_abilities'")
+    await cursor.execute("SELECT COUNT(*) FROM '17lands_abilities')")
     (seventeenlands_abilities_count,) = await cursor.fetchone()
 
     if scryfall_all_cards_count == 0 and seventeenlands_decks_count == 0 and seventeenlands_abilities_count == 0:

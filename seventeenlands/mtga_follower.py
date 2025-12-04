@@ -12,7 +12,6 @@ details.
 """
 
 import argparse
-import asyncio
 import copy
 import datetime
 import getpass
@@ -32,7 +31,8 @@ from typing import Any, Optional
 
 import dateutil.parser
 
-from seventeenlands import api_client, logging_utils
+import api_client
+import logging_utils
 
 logger = logging_utils.get_logger("17Lands")
 
@@ -1798,7 +1798,7 @@ def verify_version(host: str, prompt_if_update_required: bool) -> bool:
     return False
 
 
-async def processing_loop(args: argparse.Namespace, token: str) -> None:
+def processing_loop(args: argparse.Namespace, token: str) -> None:
     filepaths = POSSIBLE_CURRENT_FILEPATHS
     if args.log_file is not None:
         filepaths = [args.log_file]
@@ -1826,9 +1826,7 @@ async def processing_loop(args: argparse.Namespace, token: str) -> None:
         if os.path.exists(filename):
             any_found = True
             logger.info(f"Following along {filename}")
-            await asyncio.to_thread(follower.parse_log, filename, follow)
-
-
+            follower.parse_log(filename=filename, follow=follow)
 
     if not any_found:
         logger.warning(
@@ -1838,7 +1836,7 @@ async def processing_loop(args: argparse.Namespace, token: str) -> None:
     logger.info("Exiting")
 
 
-async def main() -> None:
+def main() -> None:
     parser = argparse.ArgumentParser(description="MTGA log follower")
 
     config_token = get_config()
@@ -1879,44 +1877,6 @@ async def main() -> None:
 
     processing_loop(args, token)
 
-async def run_follower(
-    log_file: str | None = None,
-    host: str = api_client.DEFAULT_HOST,
-    token: str | None = None,
-    once: bool = False,
-):
-    if token is None:
-        token = get_config()
 
-    check_count = 0
-    while not verify_version(
-        host=host,
-        prompt_if_update_required=check_count % UPDATE_PROMPT_FREQUENCY == 0,
-    ):
-        check_count += 1
-        await asyncio.sleep(UPDATE_CHECK_INTERVAL.total_seconds())
-
-    filepaths = POSSIBLE_CURRENT_FILEPATHS
-    if log_file is not None:
-        filepaths = [log_file]
-
-    follow = not once
-    follower = Follower(token, host=host)
-
-    if log_file is None and host == api_client.DEFAULT_HOST and follow:
-        for filename in POSSIBLE_PREVIOUS_FILEPATHS:
-            if os.path.exists(filename):
-                logger.info(f"Parsing the previous log {filename} once")
-                await asyncio.to_thread(follower.parse_log, filename, follow)
-                break
-
-    for filename in filepaths:
-        if os.path.exists(filename):
-            logger.info(f"Following along {filename}")
-            follower.parse_log(filename=filename, follow=follow)
-            await asyncio.to_thread(follower.parse_log, filename, follow)
-            break
-
-    
 if __name__ == "__main__":
     main()

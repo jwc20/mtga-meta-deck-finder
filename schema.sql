@@ -83,3 +83,15 @@ CREATE TABLE IF NOT EXISTS deck_cards
     FOREIGN KEY (card_id) REFERENCES cards (id),
     UNIQUE (deck_id, card_id)
 );
+
+
+
+CREATE TABLE IF NOT EXISTS deck_base64_strings
+(
+    id            INTEGER PRIMARY KEY,
+    deck_id       INTEGER NOT NULL,
+    base64_string TEXT    NOT NULL,
+    FOREIGN KEY (deck_id) REFERENCES decks (id) ON DELETE CASCADE,
+    UNIQUE (deck_id)
+)
+

@@ -1,6 +1,5 @@
 import logging
 from contextlib import asynccontextmanager
-import asyncio
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,8 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.config import setup_logging, request_id_var, generate_request_id
 from app.routes import pages, decks, logs
-
-from seventeenlands.mtga_follower import run_follower
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -19,14 +16,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(_app: FastAPI):
     logger.info("Starting application")
     await init_db()
-    task = asyncio.create_task(run_follower())
     yield
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    
+
+
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
