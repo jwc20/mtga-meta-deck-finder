@@ -1,9 +1,3 @@
--- drop Table IF EXISTS decks;
--- drop Table IF EXISTS cards;
--- drop Table IF EXISTS deck_cards;
--- DROP TABLE IF EXISTS decks;
--- DROP TABLE IF EXISTS deck_cards;
-
 CREATE TABLE IF NOT EXISTS user_info
 (
     id         INTEGER PRIMARY KEY,
@@ -84,14 +78,4 @@ CREATE TABLE IF NOT EXISTS deck_cards
     UNIQUE (deck_id, card_id)
 );
 
-
-
-CREATE TABLE IF NOT EXISTS deck_base64_strings
-(
-    id            INTEGER PRIMARY KEY,
-    deck_id       INTEGER NOT NULL,
-    base64_string TEXT    NOT NULL,
-    FOREIGN KEY (deck_id) REFERENCES decks (id) ON DELETE CASCADE,
-    UNIQUE (deck_id)
-)
 
