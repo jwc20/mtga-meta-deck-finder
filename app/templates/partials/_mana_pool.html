@@ -1,0 +1,21 @@
+<div class="mana-pool">
+    <p>{{ title }}</p>
+    <table class="mana-table">
+        {% if mana_data %}
+        <thead>
+        <tr>
+            {% for color, count in mana_data %}
+            <th>{{ color | safe }}</th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            {% for color, count in mana_data %}
+            <td>{{ count }}</td>
+            {% endfor %}
+        </tr>
+        </tbody>
+        {% endif %}
+    </table>
+</div>

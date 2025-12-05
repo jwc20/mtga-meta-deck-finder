@@ -109,7 +109,7 @@ async def render_log_update_html(
         producible_mana_tags: list[tuple[str, int]],
         missing_ids: list[str],
 ) -> str:
-    html_content = templates.get_template("list_cards.html").render(
+    html_content = templates.get_template("game_view.html").render(
         cards=current_deck_cards,
         matching_decks=matching_decks,
         opponent_mana=opponent_mana_tags,

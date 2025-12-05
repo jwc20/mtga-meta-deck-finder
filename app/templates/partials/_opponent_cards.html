@@ -1,0 +1,35 @@
+<section>
+    <h5>Opponent's Cards</h5>
+    {% set cards_with_types = cards|selectattr('types')|list %}
+    {% for type, type_cards in cards_with_types|groupby('types') %}
+    <div class="type-group">
+        <div class="type-header">{{ type|title }}</div>
+        <ul class="cards-list">
+            {% for card in type_cards|sort(attribute='name') %}
+            <li>
+                {% include "partials/_card_hover.html" %}
+                <div class="mana-cost">
+                    {{ card.mana_cost_tags | safe }}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    {% if missing_ids %}
+    <div class="missing-cards">
+        <span>Missing Cards: {{ missing_ids }}</span>
+    </div>
+    {% endif %}
+
+    <div>
+        {% with mana_data=opponent_mana, title="Basic Mana" %}
+            {% include "partials/_mana_pool.html" %}
+        {% endwith %}
+
+        {% with mana_data=producible_mana, title="Producible Mana(Beta)" %}
+            {% include "partials/_mana_pool.html" %}
+        {% endwith %}
+    </div>
+</section>

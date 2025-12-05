@@ -1,0 +1,159 @@
+<style>
+    .grid {
+        display: grid;
+        grid-gap: 1rem;
+    }    
+   
+    .mana-pool {
+        margin-top: 2rem;
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 1rem;
+    }
+
+    .mana-table {
+        display: table;
+        margin-bottom: 0 !important;
+    }
+
+    .mana-table th {
+        display: table-cell;
+        text-align: center;
+    }
+
+    .mana-table td {
+        display: table-cell;
+        text-align: center;
+    }
+
+    .missing-cards {
+        margin-top: 0.5rem;
+    }
+
+    .ms-cost {
+        line-height: 0.2rem;
+    }
+
+
+    .mana-cost {
+        display: contents;
+    }
+
+    ul li {
+        list-style: none;
+        margin: 0;
+        padding-bottom: 0.2rem;
+    }
+
+    .card-hover {
+        position: relative;
+        cursor: pointer;
+    }
+
+    .card-image {
+        display: none;
+        position: fixed;
+        inset-block-start: 50%;
+        inset-inline-start: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        border-radius: 4.75% / 3.5%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        width: 300px;
+        max-inline-size: calc(100% - 2rem);
+        max-block-size: calc(100% - 2rem);
+    }
+
+    .card-hover:hover .card-image {
+        display: block;
+    }
+
+    .card-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.5rem;
+    }
+
+    .card-list > :first-child {
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        flex-basis: 14rem;
+        flex-grow: 1;
+        padding: 0.5rem;
+    }
+
+    .card-list > :last-child {
+        flex-basis: 0;
+        flex-grow: 999;
+        min-inline-size: 50%;
+    }
+
+    .cards-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        gap: 10rem;
+    }
+
+    .cards-list li > span {
+        flex-shrink: 0;
+    }
+
+    .cards-list li > span:first-child {
+        width: 3rem;
+    }
+
+    .cards-list li > span:nth-child(2) {
+        flex-grow: 1;
+    }
+
+
+    .type-group {
+        margin-top: 0.75rem;
+    }
+
+    .type-header {
+        font-size: 0.5rem;
+        font-weight: bold;
+        color: #888;
+        border-bottom: 1px solid #444;
+        margin-bottom: 0.25rem;
+    }
+
+
+    .grid > * {
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 0.5rem;
+    }
+
+    @supports (width: min(300px, 100%)) {
+        .grid {
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+        }
+    }
+
+    .card-playable {
+        color: #4ade80;
+        font-weight: bold;
+    }
+
+    .card-played {
+        text-decoration: line-through;
+    }
+
+    .card-played-indicator {
+        display: inline-block;
+        margin-left: 0.25rem;
+        color: #f59e0b;
+        font-weight: bold;
+    }
+
+    tr.htmx-swapping td {
+        opacity: 0;
+        transition: opacity 1s ease-out;
+    }
+
+
+</style>

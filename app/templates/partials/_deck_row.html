@@ -1,0 +1,45 @@
+<div class="grid-item">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>
+            <a href="{{ deck['url'] }}" style="font-size: 0.8rem;" target="_blank">{{ deck.name }}</a>
+            <span>{{ deck.matched_cards }} / {{ deck.total_deck_cards }}</span>
+        </span>
+        <span>
+            <button style="background: none; border: none; cursor: pointer; font-size: small;" hx-delete="/remove/{{ deck.id }}">
+                🗑️
+            </button>
+        </span>
+    </div>
+    <div>
+    <span>
+        {% set cards_with_types = deck.cards|selectattr('types')|list %}
+        {% for type, type_cards in cards_with_types|groupby('types') %}
+        <div class="type-group">
+            <div class="type-header">{{ type }}</div>
+            <ul>
+                {% for card in type_cards|sort(attribute='mana_cost_value', reverse=true) %}
+                {% set is_played = card.current_count is defined and card.current_count > 0 %}
+                <li>
+                    <span class="card-hover{% if card.is_playable %} card-playable{% endif %}{% if is_played %} card-played{% endif %}">
+                        {{ card.name }}
+                        {% if card.id %}
+                        <img class="card-image"
+                             src="https://cards.scryfall.io/large/front/{{ card.id[0] }}/{{ card.id[1] }}/{{ card.id }}.jpg"
+                             alt="{{ card.name }}">
+                        {% endif %}
+                    </span>
+                    {% if is_played %}<span class="card-played-indicator">✓</span>{% endif %}
+                    <div class="mana-cost">
+                        <span>{{ card.mana_cost_tags | safe }}</span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </span>
+
+    </div>
+
+
+</div>

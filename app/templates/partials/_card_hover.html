@@ -1,0 +1,12 @@
+<span class="card-hover">
+    {% if card.printed_name %}
+        {{ card.printed_name }}
+    {% else %}
+        {{ card.name }}
+    {% endif %}
+    {% if card.id %}
+        <img class="card-image"
+             src="https://cards.scryfall.io/large/front/{{ card.id[0] }}/{{ card.id[1] }}/{{ card.id }}.jpg"
+             alt="{{ card.name }}">
+    {% endif %}
+</span>
