@@ -1,5 +1,4 @@
 import asyncio
-import aiosqlite
 import logging
 from collections import defaultdict
 
@@ -7,6 +6,7 @@ from fastapi import APIRouter, Request
 from sse_starlette import EventSourceResponse
 
 from app.database import get_db
+from app.database import DBConnDep
 from app.models import ManaPool
 from app.services.logs import (
     get_last_log_line,
@@ -176,9 +176,7 @@ def is_opponent_log_entry(log_entry: str) -> bool:
 
 
 @router.get("/check-logs")
-async def check_logs_stream(request: Request):
-    conn = await get_db()
-
+async def check_logs_stream(request: Request, conn: DBConnDep):
     async def event_generator():
         logger.info("SSE stream started")
         cursor = await conn.cursor()
@@ -220,7 +218,10 @@ async def check_logs_stream(request: Request):
                                 },
                             )
                             yield {"event": "log-update", "data": html_content}
-
+                else:
+                    html_content = templates.get_template("empty_view.html").render().replace("\n", " ")
+                    yield {"event": "log-update", "data": html_content}
+                    
                 await asyncio.sleep(0)
         finally:
             logger.info("SSE stream closed")

@@ -52,7 +52,7 @@ FOLLOWER_PID=$!
 echo "MTGA Follower started (PID: $FOLLOWER_PID)"
 
 echo "Starting FastAPI app..."
-uvicorn app.main:app --reload &
+uvicorn app.main:app --reload --host=0.0.0.0 --port=8765 &
 FASTAPI_PID=$!
 echo "FastAPI app started (PID: $FASTAPI_PID)"
 

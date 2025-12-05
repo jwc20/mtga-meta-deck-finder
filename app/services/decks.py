@@ -12,6 +12,7 @@ async def delete_deck(conn: aiosqlite.Connection, deck_id: int) -> None:
 
 async def get_decks(cursor: aiosqlite.Cursor) -> list[dict]:
     # TODO: make a better query or the get_decks logic and api
+
     await cursor.execute("""
     WITH aaa AS
     (
