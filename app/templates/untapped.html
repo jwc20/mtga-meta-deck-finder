@@ -2,39 +2,142 @@
 
 {% block title %}Decks - AMD{% endblock %}
 {% block content %}
-<style >
-  form {max-width: 1000px; overflow: auto; padding:1rem}
-  textarea {max-width: 100%; min-height: 200px; overflow: auto;}
-  .decks {width: 100%; overflow: auto; display: flex; flex-wrap: wrap;}
-  .deck {width: 600px; height: 600px; overflow: auto; scrollbar-width: none; display: inline-block; font-size: 0.8rem; padding: 1rem;outline: 1px solid #ccc;margin: 1rem;border-radius: 5px;}
+<style>
+    .with-sidebar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .sidebar {
+        flex-basis: 25rem;
+        flex-grow: 1;
+    }
+
+    .not-sidebar {
+        flex-basis: 0;
+        flex-grow: 999;
+        min-inline-size: 50%;
+    }
+
+    form {
+        padding: 1rem;
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 200px;
+        box-sizing: border-box;
+    }
+
+    .decks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .deck {
+        width: 600px;
+        height: 600px;
+        overflow: auto;
+        scrollbar-width: none;
+        font-size: 0.8rem;
+        padding: 1rem;
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+    .deck table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .deck th,
+    .deck td {
+        text-align: left;
+        padding: 0.25rem;
+    }
+
+    .deck th {
+        border-bottom: 1px solid #444;
+        font-weight: bold;
+        color: #888;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .decks.list-mode {
+        flex-direction: column;
+    }
+
+    .decks.list-mode .deck {
+        width: 100%;
+        height: auto;
+        max-height: none;
+    }
+
+    .decks.list-mode .deck table {
+        display: none;
+    }
 </style>
-<section>
-    <form data-hx-post="/add/untapped-decks-html" data-hx-target="body">
-        <label for="html_doc">Paste HTML document content:</label>
-        <textarea id="html_doc" name="html_doc" placeholder="HTML doc text" aria-label="HTML document content"></textarea>
-        <button type="submit">Add Decks</button>
-    </form>
-    <form data-hx-post="/add/untapped-decks-urls" data-hx-target="body">
-        <label for="url_list">Enter deck URLs (one per line):</label>
-        <textarea id="url_list" name="url_list" placeholder="urls separated by newlines" aria-label="Deck URLs"></textarea>
-        <button type="submit">Add Decks</button>
-    </form>
-</section>
-<section>
-    <div class="decks">
-        {% for deck in decks %}
-        <div class="deck">
-            <h3><a href="{{ deck['url'] }}">{{ deck.name }}</a></h3>
-            <table>
-                <thead>
+
+<div class="with-sidebar">
+    <section class="sidebar">
+        <form data-hx-post="/add/untapped-decks-html" data-hx-target="body">
+            <label for="html_doc">Paste HTML document content:</label>
+            <textarea id="html_doc" name="html_doc" placeholder="HTML doc text"
+                      aria-label="HTML document content"></textarea>
+            <button type="submit">Add Decks</button>
+        </form>
+        <form data-hx-post="/add/untapped-decks-urls" data-hx-target="body">
+            <label for="url_list">Enter deck URLs (one per line):</label>
+            <textarea id="url_list" name="url_list" placeholder="urls separated by newlines"
+                      aria-label="Deck URLs"></textarea>
+            <button type="submit">Add Decks</button>
+        </form>
+    </section>
+
+    <section class="not-sidebar">
+        <div class="view-toggle">
+            <label>
+                <input type="radio" name="view-mode" value="column" checked onclick="setViewMode('column')"> Column
+            </label>
+            <label>
+                <input type="radio" name="view-mode" value="list" onclick="setViewMode('list')"> List
+            </label>
+        </div>
+        <div class="decks" id="decks-container" hx-confirm="Are you sure you want to delete this deck?"
+             hx-target="closest .deck" hx-swap="outerHTML swap:1s">
+            {% for deck in decks %}
+            <div class="deck">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>
+                        <a href="{{ deck['url'] }}" style="font-size: 0.8rem;" target="_blank">{{ deck.name }}</a>
+                    </span>
+                    <span>
+                        <button style="background: none; border: none; cursor: pointer; font-size: small;"
+                                hx-delete="/remove/{{ deck.id }}">
+                            🗑️
+                        </button>
+                    </span>
+                </div>
+                <table>
+                    <thead>
                     <tr>
                         <th>Card Name</th>
                         <th>Quantity</th>
                         <th>Mana Cost</th>
                         <th>Type</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     {% for card in deck.cards %}
                     <tr>
                         <td>{{ card.name }}</td>
@@ -43,10 +146,25 @@
                         <td>{{ card.type_line }}</td>
                     </tr>
                     {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-</section>
+    </section>
+</div>
+
+<p><a href="/">Home</a></p>
+
+<script>
+function setViewMode(mode) {
+    const container = document.getElementById('decks-container');
+    if (mode === 'list') {
+        container.classList.add('list-mode');
+    } else {
+        container.classList.remove('list-mode');
+    }
+}
+</script>
+
 {% endblock %}

@@ -2,8 +2,20 @@
     .grid {
         display: grid;
         grid-gap: 1rem;
-    }    
-   
+    }
+
+    @supports (width: min(300px, 100%)) {
+        .grid {
+            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+        }
+    }
+
+    .grid > * {
+        outline: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 0.5rem;
+    }
+
     .mana-pool {
         margin-top: 2rem;
         outline: 1px solid #ccc;
@@ -16,11 +28,7 @@
         margin-bottom: 0 !important;
     }
 
-    .mana-table th {
-        display: table-cell;
-        text-align: center;
-    }
-
+    .mana-table th,
     .mana-table td {
         display: table-cell;
         text-align: center;
@@ -33,7 +41,6 @@
     .ms-cost {
         line-height: 0.2rem;
     }
-
 
     .mana-cost {
         display: contents;
@@ -93,7 +100,6 @@
         list-style: none;
         padding: 0;
         margin: 0;
-        gap: 10rem;
     }
 
     .cards-list li > span {
@@ -108,7 +114,6 @@
         flex-grow: 1;
     }
 
-
     .type-group {
         margin-top: 0.75rem;
     }
@@ -119,19 +124,6 @@
         color: #888;
         border-bottom: 1px solid #444;
         margin-bottom: 0.25rem;
-    }
-
-
-    .grid > * {
-        outline: 1px solid #ccc;
-        border-radius: 5px;
-        padding: 0.5rem;
-    }
-
-    @supports (width: min(300px, 100%)) {
-        .grid {
-            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-        }
     }
 
     .card-playable {
@@ -154,6 +146,4 @@
         opacity: 0;
         transition: opacity 1s ease-out;
     }
-
-
 </style>
