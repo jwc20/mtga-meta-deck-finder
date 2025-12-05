@@ -1,5 +1,7 @@
 # MTGA Meta Deck Finder
 
+Fork of [17lands mtga-log-client](https://github.com/rconroy293/mtga-log-client)
+
 A tool for finding Magic The Gathering Arena decks uploaded to untapped.gg with a FastAPI backend and 17Lands log
 follower.
 
